@@ -12,13 +12,22 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#16a34a"
       },
-      "package": "com.yourname.naijamarket",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "package": "com.ojobointernational.naijamarket"
+    },
+    "ios": {
+      "bundleIdentifier": "com.ojobointernational.naijamarket"
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#16a34a"
+        }
+      ],
       [
         "expo-image-picker",
         {
@@ -27,13 +36,8 @@
       ]
     ],
     "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "120a97a3-6f34-4546-9365-da5792852b3e"
-      }
-    },
-    "owner": "augustineojobo"
+      "router": {},
+      "eas": { "projectId": "YOUR_PROJECT_ID" }
+    }
   }
 }
