@@ -33,11 +33,14 @@
         {
           "photosPermission": "Allow Naija Market to access your photos."
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "extra": {
       "router": {},
-      "eas": { "projectId": "120a97a3-6f34-4546-9365-da5792852b3e" }
+      "eas": {
+        "projectId": "120a97a3-6f34-4546-9365-da5792852b3e"
+      }
     }
   }
 }
