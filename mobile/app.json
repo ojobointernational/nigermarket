@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Naija Market",
+    "slug": "naija-market",
+    "version": "1.0.0",
+    "scheme": "naijamarket",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#16a34a"
+      },
+      "package": "com.yourname.naijamarket"
+    },
+    "plugins": [
+      "expo-router",
+      ["expo-image-picker", {
+        "photosPermission": "Allow Naija Market to access your photos."
+      }]
+    ],
+    "extra": {
+      "router": {},
+      "eas": { "projectId": "YOUR_PROJECT_ID" }
+    }
+  }
+}
