@@ -12,17 +12,28 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#16a34a"
       },
-      "package": "com.yourname.naijamarket"
+      "package": "com.yourname.naijamarket",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
-      ["expo-image-picker", {
-        "photosPermission": "Allow Naija Market to access your photos."
-      }]
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Naija Market to access your photos."
+        }
+      ]
     ],
     "extra": {
-      "router": {},
-      "eas": { "projectId": "YOUR_PROJECT_ID" }
-    }
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "120a97a3-6f34-4546-9365-da5792852b3e"
+      }
+    },
+    "owner": "augustineojobo"
   }
 }
