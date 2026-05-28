@@ -46,4 +46,59 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/orders — create order
+router.post('/', requireAuth, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { items, total_amount } = req.body;
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: 'No items in order.' });
+    }
+
+    await client.query('BEGIN');
+
+    // 1. create order
+    const orderResult = await client.query(
+      `INSERT INTO orders (customer_id, total_amount, status)
+       VALUES ($1, $2, 'pending')
+       RETURNING *`,
+      [req.user.id, total_amount]
+    );
+
+    const order = orderResult.rows[0];
+
+    // 2. insert order items
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO order_items 
+        (order_id, product_name, product_price, quantity, subtotal)
+        VALUES ($1, $2, $3, $4, $5)`,
+        [
+          order.id,
+          item.product_name,
+          item.product_price,
+          item.quantity,
+          item.product_price * item.quantity
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      message: 'Order created successfully',
+      order_id: order.id
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ message: 'Could not create order.' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
