@@ -28,11 +28,28 @@ export default function CheckoutScreen() {
     setLoading(true);
     try {
       // Initialize payment
-      const res = await api.post('/payment/initialize', {
-        delivery_address: address.trim(),
-        phone: phone.trim(),
-        notes: notes.trim() || undefined,
-      });
+      // const res = await api.post('/payment/initialize', {
+      //   delivery_address: address.trim(),
+      //   phone: phone.trim(),
+      //   notes: notes.trim() || undefined,
+      // });
+      const payload = {
+  delivery_address: address.trim(),
+  phone: phone.trim(),
+  notes: notes.trim() || undefined,
+
+  total_amount: cart.total,
+
+  items: cart.items.map(item => ({
+    product_name: item.name,
+    product_price: item.price,
+    quantity: item.quantity
+  }))
+};
+
+console.log("PAYMENT PAYLOAD:", payload);
+
+const res = await api.post('/payment/initialize', payload);
 
       const { authorization_url, reference, order_id } = res.data;
 
