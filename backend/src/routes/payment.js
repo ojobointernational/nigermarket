@@ -1,5 +1,3 @@
-// routes/payment.js — Paystack payment integration
-
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
@@ -7,29 +5,31 @@ const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
 require('dotenv').config();
 
-const PAYSTACK_BASE = 'https://api.paystack.co';
-const paystackHeaders = {
+const PAYSTACK = 'https://api.paystack.co';
+const headers = {
   Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
   'Content-Type': 'application/json',
 };
 
 // ── POST /api/payment/initialize ────────────────────────────
-// Creates a Paystack payment and returns the payment URL
-// Body: { delivery_address, phone, notes? }
+// Creates order and returns Paystack payment URL
 router.post('/initialize', requireAuth, async (req, res) => {
   const client = await pool.connect();
   try {
     const { delivery_address, phone, notes } = req.body;
+
     if (!delivery_address || !phone) {
-      return res.status(400).json({ message: 'Delivery address and phone are required.' });
+      return res.status(400).json({
+        message: 'Delivery address and phone are required.',
+      });
     }
 
     await client.query('BEGIN');
 
-    // Get cart
+    // Get cart items
     const cartResult = await client.query(
-      `SELECT c.quantity, p.id as product_id, p.name, p.price,
-              p.stock, p.seller_id
+      `SELECT c.quantity, p.id as product_id, p.name,
+              p.price, p.stock, p.seller_id
        FROM cart c
        JOIN products p ON c.product_id = p.id
        WHERE c.user_id = $1`,
@@ -43,65 +43,71 @@ router.post('/initialize', requireAuth, async (req, res) => {
 
     const items = cartResult.rows;
 
-    // Validate stock
+    // Check stock for all items
     for (const item of items) {
       if (item.stock < item.quantity) {
         await client.query('ROLLBACK');
         return res.status(400).json({
-          message: `"${item.name}" only has ${item.stock} in stock.`,
+          message: `"${item.name}" only has ${item.stock} left in stock.`,
         });
       }
     }
 
-    const total = items.reduce((s, i) => s + parseFloat(i.price) * i.quantity, 0);
+    // Calculate total
+    const total = items.reduce(
+      (sum, item) => sum + parseFloat(item.price) * item.quantity, 0
+    );
 
-    // Create order (unpaid for now)
+    // Create order with unpaid status
     const orderResult = await client.query(
       `INSERT INTO orders
-         (customer_id, total_amount, delivery_address, phone, notes,
-          payment_status, status)
-       VALUES ($1,$2,$3,$4,$5,'unpaid','pending')
+         (customer_id, total_amount, delivery_address, phone,
+          notes, payment_status, status)
+       VALUES ($1, $2, $3, $4, $5, 'unpaid', 'pending')
        RETURNING *`,
-      [req.user.id, total.toFixed(2), delivery_address, phone, notes||null]
+      [req.user.id, total.toFixed(2), delivery_address, phone, notes || null]
     );
     const order = orderResult.rows[0];
 
-    // Insert order items
+    // Create order items
     for (const item of items) {
-      const subtotal = parseFloat(item.price) * item.quantity;
       await client.query(
         `INSERT INTO order_items
-           (order_id, product_id, seller_id, product_name, product_price, quantity, subtotal)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [order.id, item.product_id, item.seller_id, item.name,
-         item.price, item.quantity, subtotal]
+           (order_id, product_id, seller_id, product_name,
+            product_price, quantity, subtotal)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          order.id, item.product_id, item.seller_id,
+          item.name, item.price, item.quantity,
+          parseFloat(item.price) * item.quantity,
+        ]
       );
     }
 
     await client.query('COMMIT');
 
-    // Initialize Paystack payment
-    // Amount must be in KOBO (multiply naira by 100)
+    // Initialize Paystack — amount must be in KOBO (naira × 100)
     const amountInKobo = Math.round(total * 100);
     const reference = `NM_${order.id}_${Date.now()}`;
 
     const paystackRes = await axios.post(
-      `${PAYSTACK_BASE}/transaction/initialize`,
+      `${PAYSTACK}/transaction/initialize`,
       {
         email: req.user.email,
         amount: amountInKobo,
         reference,
+        callback_url: `${process.env.FRONTEND_URL}/payment/verify?reference=${reference}`,
         metadata: {
           order_id: order.id,
           customer_name: req.user.name,
         },
       },
-      { headers: paystackHeaders }
+      { headers }
     );
 
-    // Save the reference
+    // Save reference to order
     await pool.query(
-      'UPDATE orders SET payment_reference=$1 WHERE id=$2',
+      'UPDATE orders SET payment_reference = $1 WHERE id = $2',
       [reference, order.id]
     );
 
@@ -113,7 +119,7 @@ router.post('/initialize', requireAuth, async (req, res) => {
       amount: total,
     });
   } catch (err) {
-    await client.query('ROLLBACK').catch(console.error);
+    await client.query('ROLLBACK').catch(() => {});
     console.error('Payment init error:', err.response?.data || err.message);
     res.status(500).json({ message: 'Could not initialize payment.' });
   } finally {
@@ -122,26 +128,27 @@ router.post('/initialize', requireAuth, async (req, res) => {
 });
 
 // ── POST /api/payment/verify ─────────────────────────────────
-// Called after user completes payment on Paystack
-// Body: { reference }
+// Verifies payment after redirect from Paystack
 router.post('/verify', requireAuth, async (req, res) => {
   try {
     const { reference } = req.body;
-    if (!reference) return res.status(400).json({ message: 'Reference required.' });
+    if (!reference) {
+      return res.status(400).json({ message: 'Reference is required.' });
+    }
 
     // Verify with Paystack
     const verify = await axios.get(
-      `${PAYSTACK_BASE}/transaction/verify/${reference}`,
-      { headers: paystackHeaders }
+      `${PAYSTACK}/transaction/verify/${reference}`,
+      { headers }
     );
 
-    const paymentData = verify.data.data;
+    const data = verify.data.data;
 
-    if (paymentData.status !== 'success') {
-      return res.status(400).json({ message: 'Payment not successful.' });
+    if (data.status !== 'success') {
+      return res.status(400).json({ message: 'Payment was not successful.' });
     }
 
-    // Update order status
+    // Update order to paid
     const order = await pool.query(
       `UPDATE orders SET
          payment_status = 'paid',
@@ -156,7 +163,7 @@ router.post('/verify', requireAuth, async (req, res) => {
       return res.status(404).json({ message: 'Order not found.' });
     }
 
-    // Reduce stock and clear cart
+    // Reduce stock and update total sold
     const items = await pool.query(
       'SELECT * FROM order_items WHERE order_id = $1',
       [order.rows[0].id]
@@ -164,15 +171,21 @@ router.post('/verify', requireAuth, async (req, res) => {
 
     for (const item of items.rows) {
       await pool.query(
-        'UPDATE products SET stock = stock - $1, total_sold = total_sold + $1 WHERE id = $2',
+        `UPDATE products
+         SET stock = stock - $1, total_sold = total_sold + $1
+         WHERE id = $2`,
         [item.quantity, item.product_id]
       );
     }
 
-    await pool.query('DELETE FROM cart WHERE user_id = $1', [req.user.id]);
+    // Clear customer cart
+    await pool.query(
+      'DELETE FROM cart WHERE user_id = $1',
+      [order.rows[0].customer_id]
+    );
 
     res.json({
-      message: '🎉 Payment successful! Your order has been confirmed.',
+      message: '🎉 Payment successful! Order confirmed.',
       order: order.rows[0],
     });
   } catch (err) {
@@ -181,7 +194,8 @@ router.post('/verify', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/payment/public-key — send public key to mobile app
+// ── GET /api/payment/public-key ──────────────────────────────
+// Sends public key to frontend safely
 router.get('/public-key', (req, res) => {
   res.json({ public_key: process.env.PAYSTACK_PUBLIC_KEY });
 });
