@@ -93,12 +93,20 @@ router.post('/', requireAuth, async (req, res) => {
     });
 
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error(err);
-    res.status(500).json({ message: 'Could not create order.' });
-  } finally {
-    client.release();
-  }
+  await client.query('ROLLBACK').catch(() => {});
+
+  console.error('🔥 ORDER ERROR DETAILS:', {
+    message: err.message,
+    detail: err.detail,
+    hint: err.hint,
+    code: err.code
+  });
+
+  return res.status(500).json({
+    message: 'Could not create order.',
+    error: err.message
+  });
+}
 });
 
 module.exports = router;
