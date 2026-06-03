@@ -168,5 +168,47 @@ router.post('/', requireAuth, async (req, res) => {
     client.release();
   }
 });
+/* =========================================================
+   ⭐ NEWLY ADDED ROUTE — MARK ORDER AS PAID
+   ========================================================= */
+
+// ─────────────────────────────────────────────
+// PUT /api/orders/:id/pay — Update payment status
+// ─────────────────────────────────────────────
+router.put('/:id/pay', requireAuth, async (req, res) => {
+  try {
+    const { payment_reference, payment_method } = req.body;
+
+    const result = await pool.query(
+      `UPDATE orders 
+       SET payment_status = 'paid',
+           status = 'processing',
+           payment_reference = $1,
+           payment_method = $2,
+           paid_at = NOW()
+       WHERE id = $3 AND customer_id = $4
+       RETURNING *`,
+      [
+        payment_reference || null,
+        payment_method || null,
+        req.params.id,
+        req.user.id
+      ]
+    );
+
+    if (!result.rows[0]) {
+      return res.status(404).json({ message: 'Order not found.' });
+    }
+
+    res.json({
+      message: 'Payment updated successfully',
+      order: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error('PAYMENT UPDATE ERROR:', err);
+    res.status(500).json({ message: 'Could not update payment.' });
+  }
+});
 
 module.exports = router;
