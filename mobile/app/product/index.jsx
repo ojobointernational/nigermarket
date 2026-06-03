@@ -4,7 +4,8 @@ import {
   ActivityIndicator, Alert, Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import api from '../config/api';
+//import api from '../config/api';
+import api from '../../config/api';
 
 const G = '#16a34a';
 const { width } = Dimensions.get('window');
