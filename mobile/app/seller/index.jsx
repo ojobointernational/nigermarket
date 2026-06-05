@@ -108,7 +108,7 @@ export default function SellerDashboard() {
               </Text>
             </View>
             <View style={s.actions}>
-              <TouchableOpacity onPress={() => router.push(`/seller/edit/${item.id}`)}>
+              <TouchableOpacity onPress={() => router.push(`/product/${item.id}`)}>
                 <Text style={{ fontSize: 22 }}>✏️</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => del(item.id, item.name)}>
