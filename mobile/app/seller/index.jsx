@@ -57,7 +57,7 @@ export default function SellerDashboard() {
           <Text style={s.shopSub}>Seller Dashboard</Text>
         </View>
         <View style={s.headerBtns}>
-          <TouchableOpacity style={s.ordersBtn} onPress={() => router.push('/seller/orders')}>
+          <TouchableOpacity style={s.ordersBtn} onPress={() => router.push('/orders')}>
             <Text style={s.ordersBtnTxt}>📦 Orders</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.logoutBtn} onPress={logout}>

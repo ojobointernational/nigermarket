@@ -57,7 +57,7 @@ export default function AdminDashboard() {
       <Text style={s.section}>Quick Actions</Text>
       {[
         { icon: '🏪', label: 'Manage Sellers',   sub: 'Approve or reject seller applications', route: '/admin/sellers' },
-        { icon: '🧾', label: 'View All Orders',  sub: 'See and update all customer orders',    route: '/admin/orders' },
+        { icon: '🧾', label: 'View All Orders',  sub: 'See and update all customer orders',    route: '/orders' },
       ].map((a) => (
         <TouchableOpacity key={a.route} style={s.action} onPress={() => router.push(a.route)}>
           <Text style={s.actionIcon}>{a.icon}</Text>
